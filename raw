@@ -1,0 +1,218 @@
+--[[ Spio Executor Pro GUI for Delta ]]
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Main GUI Container
+local mainGui = Instance.new("ScreenGui")
+mainGui.Name = "SpioExecutorGUI"
+mainGui.ResetOnSpawn = false
+mainGui.IgnoreGuiInset = true
+mainGui.Parent = playerGui
+
+-- Open Button ("S")
+local openButton = Instance.new("TextButton")
+openButton.Size = UDim2.new(0, 70, 0, 70)
+openButton.Position = UDim2.new(0.5, -35, 1, -100)
+openButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+openButton.Text = "S"
+openButton.TextScaled = true
+openButton.TextColor3 = Color3.new(1, 1, 1)
+openButton.Font = Enum.Font.GothamBlack
+openButton.BackgroundTransparency = 0
+openButton.BorderSizePixel = 0
+openButton.AutoButtonColor = true
+openButton.ClipsDescendants = true
+openButton.Parent = mainGui
+openButton.Visible = true
+openButton.ZIndex = 2
+
+-- Drag S Button
+local dragging = false
+local dragInput, dragStart, startPos
+
+openButton.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = openButton.Position
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - dragStart
+		openButton.Position = UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
+		)
+	end
+end)
+
+-- Function: Smooth Tween
+local function tweenSmooth(obj, props, time)
+	local tweenInfo = TweenInfo.new(time or 0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+	local tween = TweenService:Create(obj, tweenInfo, props)
+	tween:Play()
+	return tween
+end
+
+-- Main Frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0.9, 0, 0.6, 0)
+mainFrame.Position = UDim2.new(0.5, -200, 0.5, -200)
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BackgroundTransparency = 0.1
+mainFrame.Visible = false
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = mainGui
+mainFrame.ZIndex = 1
+
+-- Make Main Frame Oval
+local uiCornerMain = Instance.new("UICorner")
+uiCornerMain.CornerRadius = UDim.new(0, 40)
+uiCornerMain.Parent = mainFrame
+
+-- Scrollable TextBox Container
+local scroll = Instance.new("ScrollingFrame")
+scroll.Size = UDim2.new(0.7, 0, 0.7, 0)
+scroll.Position = UDim2.new(0, 20, 0, 20)
+scroll.CanvasSize = UDim2.new(0, 0, 10, 0)
+scroll.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+scroll.BorderSizePixel = 0
+scroll.ScrollBarThickness = 4
+scroll.ClipsDescendants = true
+scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scroll.Parent = mainFrame
+local uiCornerScroll = Instance.new("UICorner", scroll)
+uiCornerScroll.CornerRadius = UDim.new(0, 20)
+
+-- Script Box
+local scriptBox = Instance.new("TextBox")
+scriptBox.Size = UDim2.new(1, -10, 1, -10)
+scriptBox.Position = UDim2.new(0, 5, 0, 5)
+scriptBox.ClearTextOnFocus = false
+scriptBox.MultiLine = true
+scriptBox.TextWrapped = true
+scriptBox.TextYAlignment = Enum.TextYAlignment.Top
+scriptBox.TextXAlignment = Enum.TextXAlignment.Left
+scriptBox.Font = Enum.Font.Code
+scriptBox.TextSize = 14
+scriptBox.Text = "-- Paste your script here"
+scriptBox.BackgroundTransparency = 1
+scriptBox.TextColor3 = Color3.new(1, 1, 1)
+scriptBox.Parent = scroll
+
+-- Status Label
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, -20, 0, 30)
+statusLabel.Position = UDim2.new(0, 10, 1, -40)
+statusLabel.BackgroundTransparency = 1
+statusLabel.TextColor3 = Color3.new(0, 1, 0)
+statusLabel.Text = "Ready"
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.TextScaled = true
+statusLabel.Parent = mainFrame
+
+-- Function Buttons
+local function createButton(name, text, yOffset, callback)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0, 70, 0, 70)
+	btn.Position = UDim2.new(1, -80, 0, yOffset)
+	btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	btn.TextColor3 = Color3.new(1, 1, 1)
+	btn.Text = text
+	btn.Font = Enum.Font.GothamBold
+	btn.TextScaled = true
+	btn.Parent = mainFrame
+	btn.AutoButtonColor = true
+	btn.ZIndex = 2
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 35)
+	btn.MouseButton1Click:Connect(callback)
+	return btn
+end
+
+-- Run Button
+createButton("Run", "Run", 20, function()
+	statusLabel.Text = "Running..."
+	local scriptStr = scriptBox.Text
+	local success, err = pcall(function()
+		-- Delta Executor Compatibility (uses `delta_execute`)
+		local func = loadstring(scriptStr)
+		if func then func() end
+	end)
+	if success then
+		statusLabel.Text = "Executed successfully!"
+	else
+		statusLabel.Text = "Error: " .. tostring(err)
+	end
+end)
+
+-- Clear Button
+createButton("Clear", "Clear", 110, function()
+	scriptBox.Text = ""
+	statusLabel.Text = "Cleared."
+end)
+
+-- Close Button
+createButton("Close", "X", 200, function()
+	mainFrame.Visible = false
+	openButton.Visible = true
+	tweenSmooth(openButton, {Size = UDim2.new(0, 70, 0, 70)}, 0.4)
+end)
+
+-- Open Animation from "S"
+openButton.MouseButton1Click:Connect(function()
+	mainFrame.Size = UDim2.new(0, 60, 0, 60)
+	mainFrame.Position = openButton.Position
+	mainFrame.Visible = true
+	tweenSmooth(mainFrame, {
+		Size = UDim2.new(0.9, 0, 0.6, 0),
+		Position = UDim2.new(0.5, -mainFrame.AbsoluteSize.X / 2, 0.5, -mainFrame.AbsoluteSize.Y / 2)
+	}, 0.6)
+
+	tweenSmooth(openButton, {Size = UDim2.new(0, 0, 0, 0)}, 0.4).Completed:Connect(function()
+		openButton.Visible = false
+	end)
+end)
+
+-- Draggable Main Frame
+local dragMain = false
+local dragStartMain, startPosMain
+
+mainFrame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragMain = true
+		dragStartMain = input.Position
+		startPosMain = mainFrame.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragMain = false
+			end
+		end)
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement and dragMain then
+		local delta = input.Position - dragStartMain
+		mainFrame.Position = UDim2.new(
+			startPosMain.X.Scale,
+			startPosMain.X.Offset + delta.X,
+			startPosMain.Y.Scale,
+			startPosMain.Y.Offset + delta.Y
+		)
+	end
+end)
